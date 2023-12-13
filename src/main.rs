@@ -124,8 +124,8 @@ fn main() {
             match &lines[i] {
                 Some(l) => {
                     d.draw_line_ex(l.start, l.end, 1., Color {
-                        r: (255 * i/lines.len())as u8,
-                        g: 25,
+                        r: (255 * i+1/lines.len())as u8,
+                        g: 0,
                         b: 255,
                         a: 255,
                     });
