@@ -1,3 +1,5 @@
+use std::{thread::sleep, time::Duration};
+
 use raylib::prelude::*;
 
 #[derive(Debug)]
@@ -20,6 +22,27 @@ fn lerp_lines(l1: &Line, l2: &Line, s: f32) -> Line {
     }
 }
 
+fn bezier(lines: &[&Line], s: f32, show: bool, d: &mut RaylibDrawHandle) -> Line {
+    if lines.len() < 2 {panic!("Something went wrong, too little lines")}
+    if lines.len() == 2 {
+        if show { d.draw_line_v(
+                lerp_vec(&lines[0].start, &lines[0].end, s),
+                lerp_vec(&lines[1].start, &lines[1].end, s),
+                to_color(0x00ff0066));
+        }
+        return lerp_lines(&lines[0], &lines[1], s);
+    } else {
+        let l1 = bezier(&lines[..lines.len()-1], s, show, d);
+        let l2 = bezier(&lines[1..], s, show, d);
+        if show { d.draw_line_v(
+                lerp_vec(&l1.start, &l1.end, s),
+                lerp_vec(&l2.start, &l2.end, s),
+                to_color(0xbbbbbb66));
+        }
+        return lerp_lines(&l1, &l2, s);
+    }
+}
+
 fn to_color(v: u32) -> Color {
     Color {
         r: (v >> 24 & 0xFF) as u8,
@@ -29,30 +52,19 @@ fn to_color(v: u32) -> Color {
     }
 }
 
-fn bezier(lines: &[&Line], s: f32) -> Line {
-    if lines.len() < 2 {
-        panic!("Something went wrong, too little lines");
-    }
-    if lines.len() == 2 {
-        return lerp_lines(&lines[0], &lines[1], s);
-    } else {
-        return lerp_lines(
-            &bezier(&lines[..lines.len()-1], s),
-            &bezier(&lines[1..], s),
-            s);
-    }
-}
-
 fn main() {
     let mut lines: Vec<Option<Line>> = vec![None, None];
     let mut v1: Vec<Option<Vector2>> = vec![None, None];
     let mut v2: Vec<Option<Vector2>> = vec![None, None];
     let mut which = 0;
+    let mut intermidiete = true;
+    let mut eps = 200.;
 
     let (mut rl, thread) = raylib::init()
         .size(1280, 720)
         .title("Bézier curves")
         .build();
+    rl.set_exit_key(Some(KeyboardKey::KEY_Q));
      
     while !rl.window_should_close() {
         let mut d = rl.begin_drawing(&thread);
@@ -60,6 +72,19 @@ fn main() {
             if which+1 < lines.len() {which+=1}
             else {which=0}
         }
+
+        if d.is_key_down(KeyboardKey::KEY_MINUS) {
+            if eps > 100. {eps -= 10.}
+            eps -= 1.; sleep(Duration::from_millis(25));
+        }
+        if d.is_key_down(KeyboardKey::KEY_EQUAL) {
+            if eps > 100. {eps += 10.}
+            eps += 1.; sleep(Duration::from_millis(25));
+        }
+        if eps < 0. {eps = 0.}
+        if eps > 1000. {eps = 1000.}
+
+        if d.is_key_pressed(KeyboardKey::KEY_I) {intermidiete = !intermidiete;}
 
         if d.is_key_pressed(KeyboardKey::KEY_ENTER) {
             which = lines.len();
@@ -79,8 +104,15 @@ fn main() {
             v2[which] = Some(ms)
         }
 
+        if d.is_key_pressed(KeyboardKey::KEY_C) {
+            lines = vec![None, None];
+            v1 = vec![None, None];
+            v2 = vec![None, None];
+            which = 0;
+        }
+
         d.clear_background(Color::BLACK);
-        d.draw_text(&format!("{:?}", which), 12, 12, 20, Color::WHITE);
+        d.draw_text(&format!("{:?}", which+1), 12, 12, 20, Color::WHITE);
         d.draw_text(&format!("{:?}", d.get_fps()), 12, 30, 20, Color::WHITE);
 
         for i in 0..lines.len() {
@@ -91,14 +123,19 @@ fn main() {
             }
             match &lines[i] {
                 Some(l) => {
-                    d.draw_line_ex(l.start, l.end, 1., to_color((0x0000ffff + 0xff000000*i/lines.len() - 0x0000ff00*(i-1)/lines.len())as u32));
+                    d.draw_line_ex(l.start, l.end, 1., Color {
+                        r: (255 * i/lines.len())as u8,
+                        g: 25,
+                        b: 255,
+                        a: 255,
+                    });
                 } None => {}
             }
         }
 
         if let Some(_) = &lines[0] {
             if let Some(_) = &lines[1] {
-                let mut eps = 0.;
+                let mut s = 0.;
                 let mut ls = vec![];
                 for line in &lines {
                     match line {
@@ -107,12 +144,12 @@ fn main() {
                     }
                 }
                 for i in 0..ls.len()-1 {
-                    d.draw_line_v(ls[i].end, ls[i+1].start, to_color(0x00ff0044))
+                    d.draw_line_v(ls[i].end, ls[i+1].start, to_color(0x00ff0066))
                 }
-                while eps <= 1. {
-                    let l = bezier(&ls[..], eps);
-                    d.draw_pixel_v(lerp_vec(&l.start, &l.end, eps), to_color(0xff0000ff));
-                    eps += 0.001;
+                while s <= 1. {
+                    let l = bezier(&ls[..], s, intermidiete, &mut d);
+                    d.draw_pixel_v(lerp_vec(&l.start, &l.end, s), to_color(0xff0000ff));
+                    s += 1./eps;
                 }
             }
         }
