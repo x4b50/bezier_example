@@ -2,7 +2,7 @@ use std::{thread::{sleep, self}, time::{Duration, Instant}};
 
 use raylib::prelude::*;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Line {
     start: Vector2,
     end:   Vector2,
@@ -22,7 +22,10 @@ fn lerp_lines(l1: &Line, l2: &Line, s: f32) -> Line {
     }
 }
 
-fn bezier(lines: &[&Line], s: f32, show: bool, d: &mut RaylibDrawHandle) -> Line {
+// todo: techincally now that I look at it bezier should take in points, but that would require
+// changing the way that most of the code works.
+// now because of that animations don't work
+fn bezier(lines: &[Line], s: f32, show: bool, d: &mut RaylibDrawHandle) -> Line {
     if lines.len() < 2 {panic!("Something went wrong, too little lines")}
     if lines.len() == 2 {
         if show { d.draw_line_v(
@@ -30,7 +33,10 @@ fn bezier(lines: &[&Line], s: f32, show: bool, d: &mut RaylibDrawHandle) -> Line
                 lerp_vec(&lines[1].start, &lines[1].end, s),
                 to_color(0x00ff0066));
         }
-        return lerp_lines(&lines[0], &lines[1], s);
+        return lerp_lines(
+            &lerp_lines(&lines[0], &Line { start: lines[0].end, end: lines[1].start }, s),
+            &lerp_lines(&Line { start: lines[0].end, end: lines[1].start }, &lines[1], s),
+            s);
     } else {
         let l1 = bezier(&lines[..lines.len()-1], s, show, d);
         let l2 = bezier(&lines[1..], s, show, d);
@@ -145,7 +151,7 @@ fn main() {
                 let mut ls = vec![];
                 for line in &lines {
                     match line {
-                        Some(l) => {ls.push(l)}
+                        Some(l) => {ls.push(l.clone())}
                         None => {}
                     }
                 }
