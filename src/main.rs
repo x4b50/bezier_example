@@ -1,4 +1,4 @@
-use std::{thread::sleep, time::Duration};
+use std::{thread::{sleep, self}, time::{Duration, Instant}};
 
 use raylib::prelude::*;
 
@@ -58,7 +58,11 @@ fn main() {
     let mut v2: Vec<Option<Vector2>> = vec![None, None];
     let mut which = 0;
     let mut intermidiete = true;
+    let mut animate = false;
     let mut eps = 200.;
+
+    let start = Instant::now();
+    let frame_time = Duration::new(0, 1000000000u32/125);
 
     let (mut rl, thread) = raylib::init()
         .size(1280, 720)
@@ -68,6 +72,7 @@ fn main() {
      
     while !rl.window_should_close() {
         let mut d = rl.begin_drawing(&thread);
+        let frame_start = Instant::now();
         if d.is_key_pressed(KeyboardKey::KEY_SPACE) {
             if which+1 < lines.len() {which+=1}
             else {which=0}
@@ -84,7 +89,8 @@ fn main() {
         if eps < 0. {eps = 0.}
         if eps > 1000. {eps = 1000.}
 
-        if d.is_key_pressed(KeyboardKey::KEY_I) {intermidiete = !intermidiete;}
+        if d.is_key_pressed(KeyboardKey::KEY_I) {animate = false; intermidiete = !intermidiete;}
+        if d.is_key_pressed(KeyboardKey::KEY_A) {animate = !animate;}
 
         if d.is_key_pressed(KeyboardKey::KEY_ENTER) {
             which = lines.len();
@@ -146,12 +152,24 @@ fn main() {
                 for i in 0..ls.len()-1 {
                     d.draw_line_v(ls[i].end, ls[i+1].start, to_color(0x00ff0066))
                 }
-                while s <= 1. {
-                    let l = bezier(&ls[..], s, intermidiete, &mut d);
-                    d.draw_pixel_v(lerp_vec(&l.start, &l.end, s), to_color(0xff0000ff));
-                    s += 1./eps;
+                if animate {
+                    let s = start.elapsed().as_millis();
+                    let s = ((s as f32/500.).sin() +1.)/2.;
+                    let l = bezier(&ls[..], s, true, &mut d);
+                    d.draw_circle_v(lerp_vec(&l.start, &l.end, s), eps/15., to_color(0xff0000ff));
+                } else {
+                    while s <= 1. {
+                        let l = bezier(&ls[..], s, intermidiete, &mut d);
+                        d.draw_pixel_v(lerp_vec(&l.start, &l.end, s), to_color(0xff0000ff));
+                        s += 1./eps;
+                    }
                 }
             }
+        }
+
+        let frame_d = frame_start.elapsed();
+        if frame_d < frame_time {
+            thread::sleep(frame_time - frame_d);
         }
     }
 }
