@@ -68,7 +68,7 @@ fn main() {
         .size(1280, 720)
         .title("Bézier curves")
         .build();
-    rl.set_exit_key(Some(KeyboardKey::KEY_Q));
+    // rl.set_exit_key(Some(KeyboardKey::KEY_Q));
      
     while !rl.window_should_close() {
         let mut d = rl.begin_drawing(&thread);
